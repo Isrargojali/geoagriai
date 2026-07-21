@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@geoagri/frontend"],
+      "port": 5173
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@geoagri/backend"],
+      "port": 4000
+    },
+    {
+      "name": "gis-service",
+      "runtimeExecutable": "python-service/.venv/bin/uvicorn",
+      "runtimeArgs": ["--app-dir", "python-service", "app.main:app", "--port", "8000", "--reload"],
+      "port": 8000
+    }
+  ]
+}

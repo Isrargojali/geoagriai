@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Database & uploads
+database/*.db
+database/*.db-journal
+database/uploads/
+database/reports/
+database/ndvi/
+
+# GEE credentials
+python-service/credentials/*.json
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+coverage/
+.pytest_cache/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json

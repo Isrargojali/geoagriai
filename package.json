@@ -1,0 +1,23 @@
+{
+  "name": "geoagri-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GeoAgri AI — Smart Farming from Space. AI-powered GIS & Remote Sensing platform for crop health monitoring.",
+  "workspaces": [
+    "packages/shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build -w @geoagri/shared && npm run build -w @geoagri/backend && npm run build -w @geoagri/frontend",
+    "dev:backend": "npm run dev -w @geoagri/backend",
+    "dev:frontend": "npm run dev -w @geoagri/frontend",
+    "test": "npm run test -w @geoagri/backend && npm run test -w @geoagri/frontend",
+    "db:migrate": "npm run db:migrate -w @geoagri/backend",
+    "db:seed": "npm run db:seed -w @geoagri/backend",
+    "lint": "npm run lint -w @geoagri/backend && npm run lint -w @geoagri/frontend"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

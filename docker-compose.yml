@@ -1,0 +1,67 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: geoagri-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      BACKEND_HOST: 0.0.0.0
+      DATABASE_URL: file:/app/database/geoagri.db
+      PYTHON_SERVICE_URL: http://python-service:8000
+      UPLOADS_DIR: /app/database/uploads
+      REPORTS_DIR: /app/database/reports
+      NDVI_DIR: /app/database/ndvi
+    ports:
+      - "4000:4000"
+    volumes:
+      - geoagri-data:/app/database
+    depends_on:
+      python-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  python-service:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    container_name: geoagri-gis
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NDVI_DIR: /app/data/ndvi
+    ports:
+      - "8000:8000"
+    volumes:
+      - geoagri-gis-data:/app/data
+      - ./python-service/credentials:/app/credentials:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: geoagri-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  geoagri-data:
+  geoagri-gis-data:

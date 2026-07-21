@@ -1,0 +1,303 @@
+// GeoAgri AI — Prisma schema (SQLite for MVP)
+//
+// PostgreSQL migration notes:
+//  - Switch datasource provider to "postgresql" and update DATABASE_URL.
+//  - String-typed status/enum columns become native Postgres enums if desired.
+//  - FarmBoundary.geometryJson (GeoJSON string) becomes a PostGIS
+//    geometry(MultiPolygon, 4326) column; area/centroid move to ST_Area /
+//    ST_Centroid. All geometry access goes through the boundary service, so
+//    only that module needs changes.
+//  - Json-as-String columns (statisticsJson, recommendationJson, forecastJson,
+//    featuresJson, detailsJson) become native jsonb columns.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String @id @default(cuid())
+  name        String @unique // ADMIN | FARMER
+  description String
+  users       User[]
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  firstName            String
+  lastName             String
+  phone                String?
+  roleId               String
+  role                 Role      @relation(fields: [roleId], references: [id])
+  emailVerified        Boolean   @default(false)
+  emailVerifyToken     String?   @unique
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  farms            Farm[]
+  analyses         Analysis[]
+  reports          Report[]
+  notifications    Notification[]
+  subscriptions    Subscription[]
+  payments         Payment[]
+  invoices         Invoice[]
+  auditLogs        AuditLog[]
+  reviewedPayments Payment[]      @relation("PaymentReviewer")
+  refreshTokens    RefreshToken[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Farm {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  cropType     String?
+  plantingDate DateTime?
+  areaHectares Float
+  centroidLat  Float
+  centroidLng  Float
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  boundary       FarmBoundary?
+  analyses       Analysis[]
+  weatherRecords WeatherRecord[]
+  reports        Report[]
+
+  @@index([userId])
+}
+
+model FarmBoundary {
+  id     String @id @default(cuid())
+  farmId String @unique
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  // GeoJSON Polygon/MultiPolygon as string (becomes PostGIS geometry later)
+  geometryJson String
+  source       String @default("DRAWN") // DRAWN | GEOJSON | KML
+  srid         Int    @default(4326)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Analysis {
+  id          String    @id @default(cuid())
+  farmId      String
+  farm        Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String    @default("NDVI") // NDVI
+  status      String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+  imageDate   DateTime?
+  cloudCover  Float?
+  ndviMin     Float?
+  ndviMax     Float?
+  ndviMean    Float?
+  ndviStdDev  Float?
+  healthScore Int?
+  healthStatus String? // EXCELLENT | GOOD | MODERATE | POOR | CRITICAL
+  // Full NdviStatistics JSON
+  statisticsJson     String?
+  // RecommendationDto JSON produced by the AI interpretation engine
+  recommendationJson String?
+  ndviImagePath      String?
+  // [[minLng,minLat],[maxLng,maxLat]] JSON
+  imageBoundsJson    String?
+  error              String?
+  createdAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  weatherRecordId String?
+  weatherRecord   WeatherRecord? @relation(fields: [weatherRecordId], references: [id])
+  reports         Report[]
+
+  @@index([farmId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model WeatherRecord {
+  id               String   @id @default(cuid())
+  farmId           String
+  farm             Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  date             DateTime
+  temperatureC     Float
+  humidityPct      Float
+  rainfallMm       Float
+  windSpeedKmh     Float
+  windDirectionDeg Float
+  weatherCode      Int
+  // ForecastDayDto[] JSON
+  forecastJson String?
+  source       String   @default("open-meteo")
+  createdAt    DateTime @default(now())
+
+  analyses Analysis[]
+
+  @@index([farmId, date])
+}
+
+model Report {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmId     String
+  farm       Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  analysisId String?
+  analysis   Analysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  type       String // PDF | CSV
+  fileName   String
+  filePath   String
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model Plan {
+  id                String  @id @default(cuid())
+  name              String
+  slug              String  @unique // trial | starter | professional | enterprise
+  priceUsd          Float? // null => contact sales
+  billingPeriod     String  @default("monthly") // monthly | yearly | trial | custom
+  maxFarms          Int? // null => unlimited
+  maxAnalysesPerDay Int?
+  maxAnalysesTotal  Int?
+  // string[] JSON of marketing feature bullets
+  featuresJson   String  @default("[]")
+  isContactSales Boolean @default(false)
+  isActive       Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscriptions Subscription[]
+  payments      Payment[]
+}
+
+model Subscription {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId      String
+  plan        Plan      @relation(fields: [planId], references: [id])
+  status      String    @default("TRIAL") // TRIAL | ACTIVE | EXPIRED | CANCELLED
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  trialEndsAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  payments Payment[]
+
+  @@index([userId, status])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  planId         String
+  plan           Plan          @relation(fields: [planId], references: [id])
+  amountUsd      Float
+  method         String // JAZZCASH | EASYPAISA | BANK_TRANSFER
+  status         String        @default("PENDING") // PENDING | APPROVED | REJECTED
+  rejectReason   String?
+  reviewedById   String?
+  reviewedBy     User?         @relation("PaymentReviewer", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  proof   PaymentProof?
+  invoice Invoice?
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+model PaymentProof {
+  id             String   @id @default(cuid())
+  paymentId      String   @unique
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  transactionId  String
+  amount         Float
+  paymentDate    DateTime
+  method         String
+  screenshotPath String
+  notes          String?
+  createdAt      DateTime @default(now())
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  paymentId     String   @unique
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amountUsd     Float
+  pdfPath       String?
+  issuedAt      DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  group     String   @default("general") // payment | support | general
+  label     String
+  isPublic  Boolean  @default(false) // public settings are exposed to farmers (e.g. payment instructions)
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String
+  resource    String
+  resourceId  String?
+  detailsJson String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
