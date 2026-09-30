@@ -108,6 +108,12 @@ export const weatherDtoSchema = z.object({
   forecast: z.array(forecastDaySchema),
 });
 
+export const geoSearchResultSchema = z.object({
+  label: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+});
+
 export const analysisDtoSchema = analysisSummarySchema.extend({
   statistics: ndviStatisticsSchema.nullable(),
   recommendation: recommendationSchema.nullable(),

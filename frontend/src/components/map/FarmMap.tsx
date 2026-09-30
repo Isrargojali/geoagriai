@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { GeoJSON, ImageOverlay, MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { GeoJSON, ImageOverlay, LayersControl, MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { FarmDto, FarmGeometry } from '@geoagri/shared';
 import { fetchProtectedBlobUrl } from '@/lib/api';
@@ -28,6 +28,29 @@ const boundaryStyle = {
   weight: 2.5,
   fillColor: '#22c55e',
   fillOpacity: 0.08,
+};
+
+export const basemaps = {
+  imagery: {
+    name: 'Satellite',
+    attribution:
+      'Tiles &copy; Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 19,
+  },
+  streets: {
+    name: 'Street',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    maxZoom: 19,
+  },
+  topo: {
+    name: 'Topo',
+    attribution:
+      'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; OpenTopoMap',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    maxZoom: 17,
+  },
 };
 
 export interface NdviOverlay {
@@ -99,17 +122,17 @@ export function FarmMap({
         className="h-full w-full"
         scrollWheelZoom
       >
-        {satellite ? (
-          <TileLayer
-            attribution="Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-        ) : (
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-        )}
+        <LayersControl position="topright">
+          {Object.entries(basemaps).map(([key, layer]) => (
+            <LayersControl.BaseLayer
+              key={key}
+              checked={satellite ? key === 'imagery' : key === 'streets'}
+              name={layer.name}
+            >
+              <TileLayer attribution={layer.attribution} url={layer.url} maxZoom={layer.maxZoom} />
+            </LayersControl.BaseLayer>
+          ))}
+        </LayersControl>
         {farms.map(
           (farm) =>
             farm.boundary && (

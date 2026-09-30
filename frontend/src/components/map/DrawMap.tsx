@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { LayersControl, MapContainer, TileLayer, ZoomControl, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet-draw';
 import type { FarmGeometry } from '@geoagri/shared';
-import { geometryBounds } from './FarmMap';
+import { basemaps, geometryBounds } from './FarmMap';
+import { LocationSearch } from './LocationSearch';
 
 // leaflet-draw expects marker icons from the leaflet package; polygons only
 // are enabled here so default icon wiring is unnecessary.
@@ -107,11 +108,22 @@ export function DrawMap({
 }) {
   return (
     <div className={`${height} w-full overflow-hidden rounded-xl`}>
-      <MapContainer center={[30.3753, 69.3451]} zoom={5} className="h-full w-full" scrollWheelZoom>
-        <TileLayer
-          attribution="Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-        />
+      <MapContainer
+        center={[30.3753, 69.3451]}
+        zoom={5}
+        className="h-full w-full"
+        scrollWheelZoom
+        zoomControl={false}
+      >
+        <LayersControl position="bottomleft">
+          {Object.entries(basemaps).map(([key, layer]) => (
+            <LayersControl.BaseLayer key={key} checked={key === 'imagery'} name={layer.name}>
+              <TileLayer attribution={layer.attribution} url={layer.url} maxZoom={layer.maxZoom} />
+            </LayersControl.BaseLayer>
+          ))}
+        </LayersControl>
+        <ZoomControl position="bottomright" />
+        <LocationSearch />
         <DrawControl initialGeometry={initialGeometry} onChange={onChange} />
       </MapContainer>
     </div>

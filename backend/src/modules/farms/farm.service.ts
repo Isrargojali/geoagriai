@@ -95,8 +95,9 @@ export async function createFarm(
   input: CreateFarmInput,
   source: 'DRAWN' | 'GEOJSON' | 'KML',
   ipAddress?: string,
+  role?: string,
 ): Promise<FarmDto> {
-  await assertCanCreateFarm(userId);
+  await assertCanCreateFarm(userId, role);
   const info = analyzeGeometry(input.geometry);
 
   const farm = await prisma.farm.create({

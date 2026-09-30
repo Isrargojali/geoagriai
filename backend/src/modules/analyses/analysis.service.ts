@@ -99,6 +99,7 @@ export async function runAnalysis(
   farmId: string,
   options: { endDate?: string; windowDays: number },
   ipAddress?: string,
+  role?: string,
 ): Promise<AnalysisDto> {
   const farm = await prisma.farm.findFirst({
     where: { id: farmId, userId },
@@ -109,7 +110,7 @@ export async function runAnalysis(
     throw new AppError(400, 'NO_BOUNDARY', 'This farm has no boundary geometry');
   }
 
-  await assertCanRunAnalysis(userId);
+  await assertCanRunAnalysis(userId, role);
 
   const analysis = await prisma.analysis.create({
     data: { farmId, userId, type: 'NDVI', status: 'PROCESSING' },

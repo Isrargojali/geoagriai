@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAdminFarms } from '@/api/admin';
 import { Pagination } from '@/components/Pagination';
 import { Card, PageSpinner } from '@/components/ui';
@@ -10,7 +11,10 @@ export function AdminFarmsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">All farms</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">All farms</h1>
+        <Link to="/farms/new" className="btn-primary">+ Add farm</Link>
+      </div>
       <Card>
         {isLoading || !data ? (
           <PageSpinner />

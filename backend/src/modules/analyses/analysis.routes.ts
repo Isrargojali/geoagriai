@@ -45,6 +45,7 @@ export async function analysisRoutes(app: FastifyInstance): Promise<void> {
         request.params.farmId,
         { endDate: request.body.endDate, windowDays: request.body.windowDays },
         request.ip,
+        request.currentUser.role,
       );
       return reply.status(201).send(result);
     },

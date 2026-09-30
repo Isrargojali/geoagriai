@@ -59,6 +59,7 @@ export async function farmRoutes(app: FastifyInstance): Promise<void> {
         request.body,
         'DRAWN',
         request.ip,
+        request.currentUser.role,
       );
       return reply.status(201).send(farm);
     },
@@ -122,6 +123,7 @@ export async function farmRoutes(app: FastifyInstance): Promise<void> {
         input,
         isKml ? 'KML' : 'GEOJSON',
         request.ip,
+        request.currentUser.role,
       );
       return reply.status(201).send(farm);
     },

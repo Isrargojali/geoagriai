@@ -41,7 +41,10 @@ CLI additionally reads `prisma/.env` (copy from `prisma/.env.example`).
 | `GEE_SERVICE_ACCOUNT_EMAIL` | *(empty)* | GEE service account. Empty ⇒ synthetic mode |
 | `GEE_PRIVATE_KEY_FILE` | *(empty)* | Path to the service-account JSON key |
 | `MAX_CLOUD_PCT` | `40` | Max Sentinel-2 scene cloudiness accepted |
+| `MIN_FARM_CLEAR_RATIO` | `0.55` | Minimum clear-pixel fraction inside the submitted farm boundary |
+| `NDVI_THUMB_MAX_DIMENSION` | `2048` | Max side length for GEE NDVI overlay PNGs |
 | `WEATHER_API_BASE_URL` | `https://api.open-meteo.com/v1` | Weather provider (no key needed) |
+| `GEOCODING_BASE_URL` | `https://nominatim.openstreetmap.org` | Place/address search on the farm map (no key needed) |
 
 ## Email (SMTP)
 

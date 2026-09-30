@@ -35,6 +35,6 @@ export async function subscriptionRoutes(app: FastifyInstance): Promise<void> {
         response: { 200: usageDtoSchema },
       },
     },
-    async (request) => getUsage(request.currentUser.id),
+    async (request) => getUsage(request.currentUser.id, request.currentUser.role),
   );
 }

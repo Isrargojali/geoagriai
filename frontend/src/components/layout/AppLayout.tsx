@@ -25,7 +25,8 @@ const adminNav = [
 ];
 
 function TrialBanner() {
-  const { data: sub } = useSubscription();
+  const { user } = useAuth();
+  const { data: sub } = useSubscription({ enabled: user?.role !== 'ADMIN' });
   if (!sub) return null;
   if (sub.status === 'TRIAL' && sub.daysRemaining != null && sub.daysRemaining <= 5) {
     return (

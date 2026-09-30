@@ -161,8 +161,9 @@ export function FarmFormPage() {
           {mode === 'draw' || isEdit ? (
             <div className="space-y-3">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Use the polygon tool (top-right of the map) to outline your farm. Drawing a new
-                polygon replaces the previous one.
+                Click the polygon icon (top-right of the map, ▲ shape) then click around your
+                farm's edges. Click the first point again (or double-click the last point) to
+                close the shape. Drawing a new polygon replaces the previous one.
               </p>
               <DrawMap initialGeometry={geometry} onChange={setGeometry} />
               <p className="text-xs text-slate-500">

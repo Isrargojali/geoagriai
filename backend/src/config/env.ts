@@ -51,6 +51,9 @@ const envSchema = z.object({
 
   RATE_LIMIT_MAX: z.coerce.number().int().default(100),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
+
+  // Place/address search on the farm boundary map (OpenStreetMap Nominatim, no API key).
+  GEOCODING_BASE_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -13,7 +13,7 @@ import { api, getTokens, setTokens } from './api';
 interface AuthContextValue {
   user: UserDto | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserDto>;
   register: (input: {
     email: string;
     password: string;
@@ -81,9 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const result = await api<AuthResponse>('/auth/login', { body: { email, password } });
+      const result = await api<AuthResponse>('/auth/login', { body: { email: email.trim(), password } });
       setTokens(result.tokens);
       persistUser(result.user);
+      return result.user;
     },
     [persistUser],
   );

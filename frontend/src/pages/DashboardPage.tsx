@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useFarms, useSubscription, useUsage, useWeather } from '@/api/hooks';
 import { FarmMap } from '@/components/map/FarmMap';
 import {
@@ -16,12 +16,14 @@ import type { HealthStatus } from '@geoagri/shared';
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const { data: farms, isLoading } = useFarms();
-  const { data: usage } = useUsage();
-  const { data: subscription } = useSubscription();
+  const { data: usage } = useUsage({ enabled: !isAdmin });
+  const { data: subscription } = useSubscription({ enabled: !isAdmin });
   const firstFarm = farms?.[0];
   const { data: weather } = useWeather(firstFarm?.id);
 
+  if (isAdmin) return <Navigate to="/admin" replace />;
   if (isLoading) return <PageSpinner />;
 
   const latestWithAnalysis = farms?.find((f) => f.latestAnalysis?.status === 'COMPLETED');

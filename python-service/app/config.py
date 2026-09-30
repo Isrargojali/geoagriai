@@ -28,6 +28,17 @@ class Settings:
         )
         # Max cloudy-pixel percentage accepted for a Sentinel-2 scene.
         self.max_cloud_pct: float = float(os.getenv("MAX_CLOUD_PCT", "40"))
+        # Minimum cloud-free fraction inside the submitted farm boundary when
+        # ranking Sentinel-2 scenes. Lower this only for persistently cloudy
+        # regions/seasons.
+        self.min_farm_clear_ratio: float = float(
+            os.getenv("MIN_FARM_CLEAR_RATIO", "0.55")
+        )
+        # Max PNG side length for GEE NDVI thumbnails. Sentinel-2 red/NIR bands
+        # are 10 m, so this mostly prevents unnecessary blur on larger farms.
+        self.ndvi_thumb_max_dimension: int = int(
+            os.getenv("NDVI_THUMB_MAX_DIMENSION", "2048")
+        )
 
     @property
     def gee_enabled(self) -> bool:

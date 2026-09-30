@@ -152,6 +152,13 @@ export interface WeatherDto {
   forecast: ForecastDayDto[];
 }
 
+// ---------- Geocoding ----------
+export interface GeoSearchResultDto {
+  label: string;
+  lat: number;
+  lng: number;
+}
+
 // ---------- Reports ----------
 export interface ReportDto {
   id: string;

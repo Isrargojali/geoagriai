@@ -19,6 +19,7 @@ import { userRoutes } from './modules/users/user.routes.js';
 import { farmRoutes } from './modules/farms/farm.routes.js';
 import { analysisRoutes } from './modules/analyses/analysis.routes.js';
 import { weatherRoutes } from './modules/weather/weather.routes.js';
+import { geoRoutes } from './modules/geo/geo.routes.js';
 import { reportRoutes } from './modules/reports/report.routes.js';
 import { notificationRoutes } from './modules/notifications/notification.routes.js';
 import { planRoutes } from './modules/subscriptions/plan.routes.js';
@@ -110,6 +111,7 @@ export async function buildApp(): Promise<App> {
       await api.register(farmRoutes, { prefix: '/farms' });
       await api.register(analysisRoutes);
       await api.register(weatherRoutes);
+      await api.register(geoRoutes, { prefix: '/geo' });
       await api.register(reportRoutes, { prefix: '/reports' });
       await api.register(notificationRoutes, { prefix: '/notifications' });
       await api.register(planRoutes, { prefix: '/plans' });

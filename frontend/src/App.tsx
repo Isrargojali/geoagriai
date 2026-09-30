@@ -41,6 +41,13 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RootRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <PageSpinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/dashboard'} replace />;
+}
+
 function NotFoundPage() {
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2">
@@ -56,7 +63,7 @@ function NotFoundPage() {
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />

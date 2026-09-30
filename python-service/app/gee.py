@@ -6,6 +6,7 @@ computes NDVI statistics plus a colour-mapped overlay PNG.
 from __future__ import annotations
 
 import io
+import math
 from datetime import date, timedelta
 from typing import Optional
 
@@ -26,8 +27,9 @@ _VIS_PALETTE = [
     "d9ef8b", "a6d96a", "66bd63", "1a9850", "006837",
 ]
 _VIS_MIN, _VIS_MAX = -0.2, 0.95
-_HISTOGRAM_BINS = 50
+_HISTOGRAM_BINS = 80
 _SCALE_M = 10  # Sentinel-2 red/NIR native resolution
+_QUALITY_SCALE_M = 20
 
 
 class GeeUnavailableError(RuntimeError):
@@ -56,12 +58,45 @@ def _mask_s2_clouds(image):
     import ee
 
     scl = image.select("SCL")
-    # SCL classes: 3 cloud shadow, 8 cloud medium prob, 9 cloud high prob,
-    # 10 thin cirrus, 11 snow.
+    # SCL classes excluded: 0 no data, 1 saturated/defective, 3 cloud shadow,
+    # 8 cloud medium prob, 9 cloud high prob, 10 thin cirrus, 11 snow/ice.
     good = (
-        scl.neq(3).And(scl.neq(8)).And(scl.neq(9)).And(scl.neq(10)).And(scl.neq(11))
+        scl.neq(0)
+        .And(scl.neq(1))
+        .And(scl.neq(3))
+        .And(scl.neq(8))
+        .And(scl.neq(9))
+        .And(scl.neq(10))
+        .And(scl.neq(11))
     )
     return image.updateMask(good)
+
+
+def _score_farm_clear_pixels(image, region):
+    """Set clear-pixel quality properties for the submitted farm geometry."""
+    import ee
+
+    masked = _mask_s2_clouds(image)
+    valid_mask = masked.select("B8").mask().rename("valid")
+    valid_ratio = valid_mask.reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=region,
+        scale=_QUALITY_SCALE_M,
+        maxPixels=1_000_000_000,
+        bestEffort=True,
+    ).get("valid")
+    valid_ratio = ee.Number(ee.Algorithms.If(valid_ratio, valid_ratio, 0))
+    scene_cloud = ee.Number(image.get("CLOUDY_PIXEL_PERCENTAGE"))
+
+    # Prefer cloud-free farm pixels over low whole-tile cloudiness. Whole
+    # Sentinel-2 tiles can be clean overall while the farm itself is cloudy.
+    quality_score = valid_ratio.subtract(scene_cloud.divide(100).multiply(0.25))
+    return image.set(
+        {
+            "farm_clear_ratio": valid_ratio,
+            "farm_quality_score": quality_score,
+        }
+    )
 
 
 def analyze_gee(
@@ -86,19 +121,23 @@ def analyze_gee(
         .filterBounds(region)
         .filterDate(start.isoformat(), (target + timedelta(days=1)).isoformat())
         .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", cloud_limit))
-        .sort("CLOUDY_PIXEL_PERCENTAGE")
+        .map(lambda img: _score_farm_clear_pixels(img, region))
+        .filter(ee.Filter.gte("farm_clear_ratio", settings.min_farm_clear_ratio))
+        .sort("farm_quality_score", False)
     )
 
     size = int(collection.size().getInfo())
     if size == 0:
         raise GeeUnavailableError(
-            f"No Sentinel-2 image with <= {cloud_limit:.0f}% cloud cover found "
+            f"No Sentinel-2 image with <= {cloud_limit:.0f}% scene cloud cover "
+            f"and >= {settings.min_farm_clear_ratio:.0%} clear farm pixels found "
             f"between {start.isoformat()} and {target.isoformat()} for this farm"
         )
 
     image = ee.Image(collection.first())
     info = image.getInfo()["properties"]
     cloud_cover = float(info.get("CLOUDY_PIXEL_PERCENTAGE", 0.0))
+    farm_clear_ratio = float(info.get("farm_clear_ratio", 0.0))
     timestamp_ms = int(info["system:time_start"])
     image_date = date.fromtimestamp(timestamp_ms / 1000).isoformat()
 
@@ -141,21 +180,33 @@ def analyze_gee(
         },
     )
 
+    min_lng, min_lat, max_lng, max_lat = _geometry_bounds(geometry)
+    thumb_dimensions = _thumb_dimensions(
+        min_lng,
+        min_lat,
+        max_lng,
+        max_lat,
+        max_dimension=settings.ndvi_thumb_max_dimension,
+    )
+
     # Export a visualized overlay PNG clipped to the farm.
     visualized = ndvi.visualize(min=_VIS_MIN, max=_VIS_MAX, palette=_VIS_PALETTE)
     thumb_url = visualized.getThumbURL(
-        {"region": region, "dimensions": 1024, "format": "png"}
+        {"region": region, "dimensions": thumb_dimensions, "format": "png"}
     )
     png = httpx.get(thumb_url, timeout=120).content
     # Validate the payload is a decodable PNG before returning it.
     Image.open(io.BytesIO(png)).verify()
 
-    min_lng, min_lat, max_lng, max_lat = _geometry_bounds(geometry)
-
     return NdviResponse(
         provider="gee",
         image_date=image_date,
-        cloud_cover=round(cloud_cover, 2),
+        # Report the cloudiness that matters to this farm, not just the whole
+        # Sentinel-2 tile. Keep the existing response field for API stability.
+        cloud_cover=round(
+            (1 - farm_clear_ratio) * 100 if farm_clear_ratio else cloud_cover,
+            2,
+        ),
         statistics=stats,
         png_base64=png_bytes_to_base64(png),
         bounds=[[min_lng, min_lat], [max_lng, max_lat]],
@@ -166,3 +217,30 @@ def _geometry_bounds(geometry: GeoJsonGeometry) -> tuple[float, float, float, fl
     from shapely.geometry import shape
 
     return shape(geometry.model_dump()).bounds
+
+
+def _thumb_dimensions(
+    min_lng: float,
+    min_lat: float,
+    max_lng: float,
+    max_lat: float,
+    *,
+    max_dimension: int,
+) -> str:
+    """Return aspect-aware GEE thumbnail dimensions like "2048x1370"."""
+    width_m = max(
+        (max_lng - min_lng)
+        * 111_320
+        * math.cos(math.radians((min_lat + max_lat) / 2)),
+        1,
+    )
+    height_m = max((max_lat - min_lat) * 111_320, 1)
+
+    if width_m >= height_m:
+        width = max_dimension
+        height = max(256, round(max_dimension * (height_m / width_m)))
+    else:
+        height = max_dimension
+        width = max(256, round(max_dimension * (width_m / height_m)))
+
+    return f"{width}x{height}"

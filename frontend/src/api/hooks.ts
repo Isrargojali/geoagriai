@@ -17,6 +17,7 @@ import type {
   ReportDto,
   SettingDto,
   SubscriptionDto,
+  GeoSearchResultDto,
   UsageDto,
   UserDto,
   WeatherDto,
@@ -140,16 +141,24 @@ export function useWeather(farmId: string | undefined) {
   });
 }
 
+// ---------- Geocoding ----------
+
+/** Search place names / addresses for the farm boundary map search box. */
+export function searchLocations(query: string, signal?: AbortSignal) {
+  return api<GeoSearchResultDto[]>(`/geo/search?q=${encodeURIComponent(query)}`, { signal });
+}
+
 // ---------- Subscription / plans ----------
 
 export function usePlans() {
   return useQuery({ queryKey: ['plans'], queryFn: () => api<PlanDto[]>('/plans') });
 }
 
-export function useSubscription() {
+export function useSubscription(options?: Partial<UseQueryOptions<SubscriptionDto>>) {
   return useQuery({
     queryKey: ['subscription'],
     queryFn: () => api<SubscriptionDto>('/subscription'),
+    ...options,
   });
 }
 

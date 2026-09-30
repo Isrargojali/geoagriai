@@ -46,7 +46,11 @@
   background: rgba(15, 23, 42, 0.8);
   color: #94a3b8;
 }
-.dark .leaflet-bar a {
+/* Scoped to the zoom control only (plain text glyphs, no sprite icon) —
+   leaflet-draw's toolbar/action buttons render their icons via a
+   background-image sprite, so restyling `background` on them would blank
+   the icons out. Leave those with their default (icon-visible) styling. */
+.dark .leaflet-control-zoom a {
   background: #1e293b;
   color: #e2e8f0;
   border-color: #334155;
